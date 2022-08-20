@@ -109,27 +109,33 @@ pub mod agoraRTC {
         }
     }
 
-    /// verify license without credential
-    pub fn license_verify(certificate_str: &String) -> ReturnCode {
-        unsafe {
-            let code = agora_rtc_license_verify(
-                certificate_str.as_ptr(),
-                certificate_str.len().try_into().unwrap(),
-                std::ptr::null(),
-                0,
-            );
-            let reason: String = if code != 0 {
+    pub fn err_2_reason(code: i32) -> ReturnCode {
+        let reason: String = unsafe {
+            if code != 0 {
                 let pVersion = agora_rtc_err_2_str(code);
                 CStr::from_ptr(pVersion).to_str().unwrap().to_owned()
             } else {
                 "".to_owned() // I should set it to undefined. There's some overhead.
-            };
-            // TODO: add more ReturnCode and avoid GeneralError
-            match code {
-                0 => ReturnCode::Ok,
-                _ => ReturnCode::GeneralError(reason),
             }
+        };
+        // TODO: add more ReturnCode and avoid GeneralError
+        match code {
+            0 => ReturnCode::Ok,
+            _ => ReturnCode::GeneralError(reason),
         }
+    }
+
+    /// verify license without credential
+    pub fn license_verify(certificate_str: &String) -> ReturnCode {
+        let code = unsafe {
+            agora_rtc_license_verify(
+                certificate_str.as_ptr(),
+                certificate_str.len().try_into().unwrap(),
+                std::ptr::null(),
+                0,
+            )
+        };
+        err_2_reason(code)
     }
 
     // TODO: build a interface
@@ -152,17 +158,14 @@ pub mod agoraRTC {
     /// init
     // https://stackoverflow.com/questions/70840454/passing-a-safe-rust-function-pointer-to-c
     // https://adventures.michaelfbryan.com/posts/rust-closures-in-ffi/
-    pub fn init(app_id: &String, opt: &RtcServiceOption, handlers: agora_rtc_event_handler_t) {
+    pub fn init(app_id: &String, opt: &RtcServiceOption, handlers: agora_rtc_event_handler_t) -> ReturnCode {
         // this should keeps living during the programming running (heap allocation?)
         let mut opt_t: rtc_service_option_t = opt.clone().into();
-        let p_handler = &handlers as * const agora_rtc_event_handler_t;
-        unsafe {
-            agora_rtc_init(
-                app_id.as_ptr(),
-                p_handler,
-                std::ptr::addr_of_mut!(opt_t),
-            );
-        }
+        let p_handler = &handlers as *const agora_rtc_event_handler_t;
+        let code = unsafe {
+            agora_rtc_init(app_id.as_ptr(), p_handler, std::ptr::addr_of_mut!(opt_t))
+        };
+        err_2_reason(code)
     }
 }
 
