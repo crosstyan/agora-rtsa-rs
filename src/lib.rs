@@ -37,7 +37,7 @@ pub mod agoraRTC {
         GLOB = (0xFFFFFFFF),
     }
 
-    type ErrorCode = i32;
+    pub type ErrorCode = i32;
 
     #[derive(Copy, Clone, FromPrimitive, IntoPrimitive)]
     #[repr(u32)]
@@ -55,18 +55,18 @@ pub mod agoraRTC {
 
     #[derive(Clone)]
     pub struct RtcServiceOption {
-        area_code: AreaCode,
-        product_id: String,
-        log_cfg: LogConfig,
-        license_value: String,
+        pub area_code: AreaCode,
+        pub product_id: [u8; 64],
+        pub log_cfg: LogConfig,
+        pub license_value: String,
     }
 
     #[derive(Clone)]
     pub struct LogConfig {
-        log_disable: bool,
-        log_disable_desensitize: bool,
-        log_level: LogLevel,
-        log_path: String,
+        pub log_disable: bool,
+        pub log_disable_desensitize: bool,
+        pub log_level: LogLevel,
+        pub log_path: String,
     }
 
     impl From<LogConfig> for log_config_t {
@@ -84,11 +84,7 @@ pub mod agoraRTC {
         fn from(opt: RtcServiceOption) -> Self {
             rtc_service_option_t {
                 area_code: opt.area_code.into(),
-                product_id: opt
-                    .product_id
-                    .as_bytes()
-                    .try_into()
-                    .expect("Product ID is too long!"),
+                product_id: opt.product_id,
                 log_cfg: opt.log_cfg.into(),
                 license_value: opt
                     .license_value
