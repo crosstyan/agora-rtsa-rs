@@ -9,13 +9,12 @@ include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 pub mod agoraRTC {
     use super::*;
+    use log::{error, info, warn};
     use num_derive::FromPrimitive;
     use num_enum::IntoPrimitive;
-    use std::ffi::CStr;
-    pub enum ReturnCode {
-        Ok,
-        GeneralError(String),
-    }
+    use std::ffi::{c_void, CStr};
+    use std::option::Option;
+    use std::ptr::{null, null_mut};
 
     #[derive(Copy, Clone, FromPrimitive, IntoPrimitive)]
     #[repr(u32)]
@@ -34,6 +33,8 @@ pub mod agoraRTC {
         OVS = 0xFFFFFFFE,
         GLOB = (0xFFFFFFFF),
     }
+
+    type ErrorCode = i32;
 
     #[derive(Copy, Clone, FromPrimitive, IntoPrimitive)]
     #[repr(u32)]
@@ -109,63 +110,280 @@ pub mod agoraRTC {
         }
     }
 
-    pub fn err_2_reason(code: i32) -> ReturnCode {
-        let reason: String = unsafe {
-            if code != 0 {
-                let pVersion = agora_rtc_err_2_str(code);
-                CStr::from_ptr(pVersion).to_str().unwrap().to_owned()
-            } else {
-                "".to_owned() // I should set it to undefined. There's some overhead.
-            }
-        };
-        // TODO: add more ReturnCode and avoid GeneralError
+    pub fn err_2_result(code: ErrorCode) -> Result<(), ErrorCode> {
         match code {
-            0 => ReturnCode::Ok,
-            _ => ReturnCode::GeneralError(reason),
+            0 => Result::Ok(()),
+            _ => Result::Err(code),
+        }
+    }
+
+    pub fn err_2_reason(code: ErrorCode) -> String {
+        unsafe {
+            let pVersion = agora_rtc_err_2_str(code);
+            CStr::from_ptr(pVersion).to_str().unwrap().to_owned()
         }
     }
 
     /// verify license without credential
-    pub fn license_verify(certificate_str: &String) -> ReturnCode {
+    pub fn license_verify(certificate_str: &str) -> Result<(), ErrorCode> {
         let code = unsafe {
             agora_rtc_license_verify(
                 certificate_str.as_ptr(),
                 certificate_str.len().try_into().unwrap(),
-                std::ptr::null(),
+                null(),
                 0,
             )
         };
-        err_2_reason(code)
+        err_2_result(code)
     }
 
-    // TODO: build a interface
-    // let a = agora_rtc_event_handler_t {
-    //     on_join_channel_success: todo!(),
-    //     on_connection_lost: todo!(),
-    //     on_rejoin_channel_success: todo!(),
-    //     on_error: todo!(),
-    //     on_user_joined: todo!(),
-    //     on_user_offline: todo!(),
-    //     on_user_mute_audio: todo!(),
-    //     on_user_mute_video: todo!(),
-    //     on_audio_data: todo!(),
-    //     on_mixed_audio_data: todo!(),
-    //     on_video_data: todo!(),
-    //     on_target_bitrate_changed: todo!(),
-    //     on_key_frame_gen_req: todo!(),
-    //     on_token_privilege_will_expire: todo!(),
-    // };
-    /// init
+    /// Occurs when local user joins channel successfully.
+    /// * `conn_id` -  Connection identification
+    /// * `uid`     -   local uid
+    /// * `elapsed_ms` - Time elapsed (ms) since channel is established
+    pub extern "C" fn on_join_channel_success(conn_id: u32, uid: u32, elapsed_ms: i32) {
+        info!(
+            "join_channel_success, conn_id: {}, uid: {}, elapsed_ms: {}",
+            conn_id, uid, elapsed_ms
+        );
+    }
+    pub extern "C" fn on_connection_lost(conn_id: u32) {
+        error!("connection_lost, conn_id: {}", conn_id);
+    }
+    pub extern "C" fn on_rejoin_channel_success(conn_id: u32, uid: u32, elapsed_ms: i32) {
+        info!(
+            "rejoin_channel_success, conn_id: {}, uid: {}, elapsed_ms: {}",
+            conn_id, uid, elapsed_ms
+        );
+    }
+
+    ///Report error message during runtime.
+    ///In most cases, it means SDK can't fix the issue and application should take action.
+    /// * `conn_id` Connection identification
+    /// * `code`    Error code, see #agora_err_code_e
+    /// * `msg`     Error message
+    pub extern "C" fn on_error(conn_id: u32, code: i32, msg: *const u8) {
+        let m = unsafe { CStr::from_ptr(msg) }.to_str();
+        let message = match code
+            .try_into()
+            .expect("Error converting on_error error code")
+        {
+            agora_err_code_e_ERR_INVALID_APP_ID => "Invalid App ID. Please double check.",
+            agora_err_code_e_ERR_INVALID_CHANNEL_NAME => "Invalid channel name",
+            agora_err_code_e_ERR_INVALID_TOKEN => "Invalid token",
+            agora_err_code_e_ERR_DYNAMIC_TOKEN_BUT_USE_STATIC_KEY => {
+                "Dynamic token is enabled but is not provided."
+            }
+            _ => "Other Error",
+        };
+        error!(
+            "ERROR!, conn_id: {}, {:?}, (Reason: {:?}, Code: {})",
+            conn_id, message, m, code
+        );
+    }
+
+    pub extern "C" fn on_user_joined(conn_id: u32, uid: u32, elapsed_ms: i32) {
+        info!(
+            "user_join, conn_id: {}, uid: {}, elapsed_ms: {}",
+            conn_id, uid, elapsed_ms
+        );
+    }
+
+    pub extern "C" fn on_user_offline(conn_id: u32, uid: u32, reason: i32) {
+        warn!(
+            "user_offline, conn_id: {}, uid: {}, user_offline_reason_e: {}",
+            conn_id, uid, reason
+        );
+    }
+
+    pub extern "C" fn on_user_mute_audio(conn_id: u32, uid: u32, muted: bool) {
+        info!(
+            "user_mute_audio, conn_id: {}, uid: {}, is_muted: {}",
+            conn_id, uid, muted
+        );
+    }
+
+    pub extern "C" fn on_user_mute_video(conn_id: u32, uid: u32, muted: bool) {
+        info!(
+            "user_mute_video, conn_id: {}, uid: {}, is_muted: {}",
+            conn_id, uid, muted
+        );
+    }
+
+    pub extern "C" fn on_audio_data(
+        _conn_id: u32,
+        _uid: u32,
+        _sent_ts: u16,
+        _data_ptr: *const c_void,
+        _data_length: u64,
+        _info_ptr: *const audio_frame_info_t,
+    ) {
+        // won't do anything default
+    }
+
+    /// Occurs every 20ms.
+    pub extern "C" fn on_mixed_audio_data(
+        _conn_id: u32,
+        _data_ptr: *const c_void,
+        _data_length: u64,
+        _info_ptr: *const audio_frame_info_t,
+    ) {
+        // won't do anything default
+    }
+
+    pub extern "C" fn on_video_data(
+        _conn_id: u32,
+        _uid: u32,
+        _sent_ts: u16,
+        _data_ptr: *const c_void,
+        _data_length: u64,
+        _info_ptr: *const video_frame_info_t,
+    ) {
+        // won't do anything default
+    }
+
+    pub extern "C" fn on_target_bitrate_changed(conn_id: u32, target_bps: u32) {
+        info!(
+            "target_bitrate_changed, conn_id: {}, target_bps: {}",
+            conn_id, target_bps
+        );
+    }
+
+    pub extern "C" fn on_key_frame_gen_req(conn_id: u32, uid: u32, stream_type: u32) {
+        info!(
+            "user_mute_audio, conn_id: {}, uid: {}, video_stream_type_e: {}",
+            conn_id, uid, stream_type
+        );
+    }
+
+    pub extern "C" fn on_token_privilege_will_expire(conn_id: u32, token: *const u8) {
+        let t = unsafe { CStr::from_ptr(token) }.to_str();
+        info!(
+            "user_mute_audio, conn_id: {}, The token will expire: {:?}",
+            conn_id, t
+        );
+    }
+
+    // See https://adventures.michaelfbryan.com/posts/rust-closures-in-ffi/
+    // https://rust-lang.github.io/unsafe-code-guidelines/layout/function-pointers.html
+    // https://doc.rust-lang.org/reference/expressions/operator-expr.html#type-cast-expressions
+    // https://users.rust-lang.org/t/rust-and-c-interoperability-c-lambdas/67136/3
+    // ** only for closures that do not capture (close over) any local variables
+    impl agora_rtc_event_handler_t {
+        /// default impl of event_handler
+        pub fn new() -> Self {
+            agora_rtc_event_handler_t {
+                on_join_channel_success: Some(on_join_channel_success),
+                on_connection_lost: Some(on_connection_lost),
+                on_rejoin_channel_success: Some(on_rejoin_channel_success),
+                on_error: Some(on_error),
+                on_user_joined: Some(on_user_joined),
+                on_user_offline: Some(on_user_offline),
+                on_user_mute_audio: Some(on_user_mute_audio),
+                on_user_mute_video: Some(on_user_mute_video),
+                on_audio_data: Some(on_audio_data),
+                on_mixed_audio_data: Some(on_mixed_audio_data),
+                on_video_data: Some(on_video_data),
+                on_target_bitrate_changed: Some(on_target_bitrate_changed),
+                on_key_frame_gen_req: Some(on_key_frame_gen_req),
+                on_token_privilege_will_expire: Some(on_token_privilege_will_expire),
+            }
+        }
+    }
+
+    impl rtc_channel_options_t {
+        /// I don't need audio by default!
+        pub fn new() -> Self {
+            let codec_opt = audio_codec_option_t {
+                audio_codec_type: audio_codec_type_e_AUDIO_CODEC_DISABLED,
+                /// Pcm sample rate. Ignored if audio coded is diabled
+                pcm_sample_rate: 0,
+                /// Pcm channel number. Ignored if audio coded is diabled
+                pcm_channel_num: 0,
+            };
+            rtc_channel_options_t {
+                auto_subscribe_audio: false,
+                auto_subscribe_video: false,
+                subscribe_local_user: false,
+                enable_audio_jitter_buffer: false,
+                enable_audio_mixer: false,
+                audio_codec_opt: codec_opt,
+                enable_aut_encryption: false,
+            }
+        }
+    }
+
+    // TODO: use a object wrapper
     // https://stackoverflow.com/questions/70840454/passing-a-safe-rust-function-pointer-to-c
     // https://adventures.michaelfbryan.com/posts/rust-closures-in-ffi/
-    pub fn init(app_id: &String, opt: &RtcServiceOption, handlers: agora_rtc_event_handler_t) -> ReturnCode {
-        // this should keeps living during the programming running (heap allocation?)
-        let mut opt_t: rtc_service_option_t = opt.clone().into();
+    /// init
+    pub fn init(
+        app_id: &str,
+        opt: RtcServiceOption,
+        handlers: agora_rtc_event_handler_t,
+    ) -> Result<(), ErrorCode> {
+        // opt_t should keeps living during the programming running (Static lifetime?)
+        // I will use move for safty
+        let mut opt_t: rtc_service_option_t = opt.into();
         let p_handler = &handlers as *const agora_rtc_event_handler_t;
+        let code =
+            unsafe { agora_rtc_init(app_id.as_ptr(), p_handler, std::ptr::addr_of_mut!(opt_t)) };
+        err_2_result(code)
+    }
+    pub fn create_connection() -> Result<u32, ErrorCode> {
+        // https://doc.rust-lang.org/reference/expressions/operator-expr.html#type-cast-expressions
+        // WARNING: this value will be mutated
+        let conn_id: u32 = 0;
+        let ptr = &conn_id as *const u32 as *mut u32;
+        let code = unsafe { agora_rtc_create_connection(ptr) };
+        unsafe {
+            match code {
+                0 => Result::Ok(*ptr),
+                _ => Result::Err(code),
+            }
+        }
+    }
+    pub fn destroy_connection(conn_id: u32) -> Result<(), ErrorCode> {
+        let code = unsafe { agora_rtc_destroy_connection(conn_id) };
+        err_2_result(code)
+    }
+    pub fn join_channel(
+        conn_id: u32,
+        channel_name: &str,
+        uid: Option<u32>,
+        token: Option<&str>,
+        options: Option<rtc_channel_options_t>,
+    ) -> Result<(), ErrorCode> {
+        let p_o: *mut rtc_channel_options_t = options.map_or(null_mut(), |opt| {
+            &opt as *const rtc_channel_options_t as *mut rtc_channel_options_t
+        });
+        let p_t = token.map_or(null(), |t| t.as_ptr());
         let code = unsafe {
-            agora_rtc_init(app_id.as_ptr(), p_handler, std::ptr::addr_of_mut!(opt_t))
+            // I believe this function won't modify token or options
+            agora_rtc_join_channel(conn_id, channel_name.as_ptr(), uid.unwrap_or(0), p_t, p_o)
         };
-        err_2_reason(code)
+        err_2_result(code)
+    }
+    pub fn leave_channel(conn_id: u32) -> Result<(), ErrorCode> {
+        let code = unsafe { agora_rtc_leave_channel(conn_id) };
+        err_2_result(code)
+    }
+
+    pub fn mute_local_audio(conn_id: u32, is_muted: bool) -> Result<(), ErrorCode> {
+        let code = unsafe { agora_rtc_mute_local_audio(conn_id, is_muted) };
+        err_2_result(code)
+    }
+    // TODO: a safe interface
+    // https://stackoverflow.com/questions/53183070/what-is-the-defacto-bytes-type-in-rust
+    pub fn send_video_data(conn_id: u32, buf:&[u8], info: &video_frame_info_t) -> Result<(), ErrorCode>{
+        let ptr = buf.as_ptr();
+        let len: size_t = buf.len().try_into().expect("error when converting buffer len in send_video_data");
+        // don't think this function will actually mutate info
+        let p_i: *mut video_frame_info_t = info as *const video_frame_info_t as *mut video_frame_info_t;
+        let code = unsafe{
+            agora_rtc_send_video_data(conn_id, std::mem::transmute(ptr), len, p_i)
+        };
+        err_2_result(code)
     }
 }
 

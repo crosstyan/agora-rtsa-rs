@@ -7,10 +7,10 @@ edition = "2021"
 
 [dependencies]
 # libc = "0.2.132"
-either = "1.8"
 num-traits = "0.2"
 num-derive = "0.3"
 num_enum = "0.5.7"
+log = "0.4"
 
 [build-dependencies]
 bindgen = "0.60.1"
