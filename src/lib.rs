@@ -91,6 +91,8 @@ pub mod agoraRTC {
     }
 
     impl RtcServiceOption {
+        /// set [log_path_c] as [std::ptr::null()] will set the log path to pwd.
+        /// 用于存放 Agora SDK 日志的目录。如果 log_path 设为 NULL，则日志位于当前应用程序的 pwd 目录。
         pub fn to_c_type(&self, log_path_c: *const u8) -> rtc_service_option_t {
             let mut opt_t : rtc_service_option_t = self.into();
             // You have to set logs before deallocation
@@ -194,7 +196,6 @@ pub mod agoraRTC {
     // https://stackoverflow.com/questions/70840454/passing-a-safe-rust-function-pointer-to-c
     // https://adventures.michaelfbryan.com/posts/rust-closures-in-ffi/
     /// init SDK
-    /// 用于存放 Agora SDK 日志的目录。如果 log_path 设为 NULL，则日志位于当前应用程序的 pwd 目录。
     pub fn init(
         app_id: &str,
         opt: rtc_service_option_t,
