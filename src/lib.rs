@@ -15,7 +15,7 @@ pub mod agoraRTC {
     use log::{error, info, warn};
     use num_derive::FromPrimitive;
     use num_enum::IntoPrimitive;
-    use std::ffi::{c_void, CStr};
+    use std::ffi::{c_void, CStr, CString};
     use std::option::Option;
     use std::ptr::{null, null_mut};
 
@@ -74,8 +74,9 @@ pub mod agoraRTC {
     impl From<LogConfig> for log_config_t {
         /// TODO: figure out why String isn't work
         fn from(config: LogConfig) -> Self {
-            let p_log_path = config.log_path.map_or(null(), |s|{
-                s.as_ptr()
+            let p_log_path = config.log_path.map_or(null(), |s| {
+                let c_s = CString::new(s).expect("CString from LogConfig");
+                c_s.as_ptr()
             });
             log_config_t {
                 log_disable: config.log_disable,
@@ -92,7 +93,7 @@ pub mod agoraRTC {
                 area_code: opt.area_code.into(),
                 product_id: opt.product_id,
                 log_cfg: opt.log_cfg.into(),
-                license_value: opt.license_value
+                license_value: opt.license_value,
             }
         }
     }
@@ -126,6 +127,7 @@ pub mod agoraRTC {
     }
 
     /// verify license without credential
+    /// &str is okay here since it has length parameter
     pub fn license_verify(certificate_str: &str) -> Result<(), ErrorCode> {
         let code = unsafe {
             agora_rtc_license_verify(
@@ -327,16 +329,16 @@ pub mod agoraRTC {
         // I will use move for safty
         let mut opt_t: rtc_service_option_t = opt.into();
         let p_handler = &handlers as *const agora_rtc_event_handler_t;
+        // You have to use CString to handle null-terminated string since rust String/&str is not zero terminated
+        let c_app_id = CString::new(app_id).expect("failed to convert to CString");
         let code =
-            unsafe { agora_rtc_init(app_id.as_ptr(), p_handler, std::ptr::addr_of_mut!(opt_t)) };
+            unsafe { agora_rtc_init(c_app_id.as_ptr(), p_handler, std::ptr::addr_of_mut!(opt_t)) };
         err_2_result(code)
     }
 
     /// deinit SDK
     pub fn deinit() -> Result<(), i32> {
-        let code = unsafe {
-            agora_rtc_fini()
-        };
+        let code = unsafe { agora_rtc_fini() };
         err_2_result(code)
     }
 
@@ -364,11 +366,18 @@ pub mod agoraRTC {
         token: Option<&str>,
         options: rtc_channel_options_t,
     ) -> Result<(), ErrorCode> {
-        let p_o: *mut rtc_channel_options_t = &options as *const rtc_channel_options_t as *mut rtc_channel_options_t;
-        let p_t = token.map_or(null(), |t| t.as_ptr());
+        let p_o: *mut rtc_channel_options_t =
+            &options as *const rtc_channel_options_t as *mut rtc_channel_options_t;
+        let t = token.unwrap_or("");
+        let c_t: *const u8 = if t.is_empty() {
+            CString::new(t).map_or(null(), |c_t| c_t.as_ptr())
+        } else {
+            null()
+        };
+        let c_chan_name = CString::new(channel_name).unwrap();
         let code = unsafe {
             // I believe this function won't modify token or options
-            agora_rtc_join_channel(conn_id, channel_name.as_ptr(), uid.unwrap_or(0), p_t, p_o)
+            agora_rtc_join_channel(conn_id, c_chan_name.as_ptr(), uid.unwrap_or(0), c_t, p_o)
         };
         err_2_result(code)
     }
@@ -383,14 +392,21 @@ pub mod agoraRTC {
     }
     // TODO: a safe interface
     // https://stackoverflow.com/questions/53183070/what-is-the-defacto-bytes-type-in-rust
-    pub fn send_video_data(conn_id: u32, buf:&[u8], info: &video_frame_info_t) -> Result<(), ErrorCode>{
+    pub fn send_video_data(
+        conn_id: u32,
+        buf: &[u8],
+        info: &video_frame_info_t,
+    ) -> Result<(), ErrorCode> {
         let ptr = buf.as_ptr();
-        let len: size_t = buf.len().try_into().expect("error when converting buffer len in send_video_data");
+        let len: size_t = buf
+            .len()
+            .try_into()
+            .expect("error when converting buffer len in send_video_data");
         // don't think this function will actually mutate info
-        let p_i: *mut video_frame_info_t = info as *const video_frame_info_t as *mut video_frame_info_t;
-        let code = unsafe{
-            agora_rtc_send_video_data(conn_id, std::mem::transmute(ptr), len, p_i)
-        };
+        let p_i: *mut video_frame_info_t =
+            info as *const video_frame_info_t as *mut video_frame_info_t;
+        let code =
+            unsafe { agora_rtc_send_video_data(conn_id, std::mem::transmute(ptr), len, p_i) };
         err_2_result(code)
     }
 }
