@@ -79,14 +79,23 @@ pub mod agoraRTC {
         }
     }
 
-    impl From<RtcServiceOption> for rtc_service_option_t {
-        fn from(opt: RtcServiceOption) -> Self {
+    impl From<&RtcServiceOption> for rtc_service_option_t {
+        fn from(opt: &RtcServiceOption) -> Self {
             rtc_service_option_t {
                 area_code: opt.area_code.into(),
                 product_id: opt.product_id,
-                log_cfg: opt.log_cfg.into(),
+                log_cfg: opt.log_cfg.clone().into(),
                 license_value: opt.license_value,
             }
+        }
+    }
+
+    impl RtcServiceOption {
+        pub fn to_c_type(&self, log_path_c: *const u8) -> rtc_service_option_t {
+            let mut opt_t : rtc_service_option_t = self.into();
+            // You have to set logs before deallocation
+            opt_t.log_cfg.log_path = log_path_c;
+            opt_t
         }
     }
 
