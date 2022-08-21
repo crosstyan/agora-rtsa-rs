@@ -110,7 +110,7 @@ pub mod agoraRTC {
         }
     }
 
-    pub fn err_2_result(code: ErrorCode) -> Result<(), ErrorCode> {
+    fn err_2_result(code: ErrorCode) -> Result<(), ErrorCode> {
         match code {
             0 => Result::Ok(()),
             _ => Result::Err(code),
