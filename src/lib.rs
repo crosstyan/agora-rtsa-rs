@@ -10,8 +10,8 @@ pub mod C {
 // https://doc.rust-lang.org/reference/items/extern-crates.htm
 
 pub mod agoraRTC {
-    use super::C::*;
     use super::defaultCallbacks::*;
+    use super::C::*;
     use num_derive::FromPrimitive;
     use num_enum::IntoPrimitive;
     use std::ffi::{c_void, CStr, CString};
@@ -65,23 +65,16 @@ pub mod agoraRTC {
         pub log_disable: bool,
         pub log_disable_desensitize: bool,
         pub log_level: LogLevel,
-        /// Only accept static/string literal?
-        /// 用于存放 Agora SDK 日志的目录。如果 log_path 设为 NULL，则日志位于当前应用程序的 pwd 目录。
-        pub log_path: Option<&'static str>,
     }
 
     impl From<LogConfig> for log_config_t {
         /// TODO: figure out why String isn't work
         fn from(config: LogConfig) -> Self {
-            let p_log_path = config.log_path.map_or(null(), |s| {
-                let c_s = CString::new(s).expect("CString from LogConfig");
-                c_s.as_ptr()
-            });
             log_config_t {
                 log_disable: config.log_disable,
                 log_disable_desensitize: config.log_disable_desensitize,
                 log_level: config.log_level.into(),
-                log_path: p_log_path,
+                log_path: null(),
             }
         }
     }
@@ -139,7 +132,6 @@ pub mod agoraRTC {
         err_2_result(code)
     }
 
-
     // See https://adventures.michaelfbryan.com/posts/rust-closures-in-ffi/
     // https://rust-lang.github.io/unsafe-code-guidelines/layout/function-pointers.html
     // https://doc.rust-lang.org/reference/expressions/operator-expr.html#type-cast-expressions
@@ -193,9 +185,10 @@ pub mod agoraRTC {
     // https://stackoverflow.com/questions/70840454/passing-a-safe-rust-function-pointer-to-c
     // https://adventures.michaelfbryan.com/posts/rust-closures-in-ffi/
     /// init SDK
+    /// 用于存放 Agora SDK 日志的目录。如果 log_path 设为 NULL，则日志位于当前应用程序的 pwd 目录。
     pub fn init(
         app_id: &str,
-        opt: RtcServiceOption,
+        opt: rtc_service_option_t,
         handlers: agora_rtc_event_handler_t,
     ) -> Result<(), ErrorCode> {
         // opt_t should keeps living during the programming running (Static lifetime?)
@@ -203,9 +196,10 @@ pub mod agoraRTC {
         let mut opt_t: rtc_service_option_t = opt.into();
         let p_handler = &handlers as *const agora_rtc_event_handler_t;
         // You have to use CString to handle null-terminated string since rust String/&str is not zero terminated
-        let c_app_id = CString::new(app_id).expect("failed to convert to CString");
+        let c_app_id = CString::new(app_id).expect("CString::new failed");
         let code =
             unsafe { agora_rtc_init(c_app_id.as_ptr(), p_handler, std::ptr::addr_of_mut!(opt_t)) };
+
         err_2_result(code)
     }
 
@@ -232,25 +226,20 @@ pub mod agoraRTC {
         let code = unsafe { agora_rtc_destroy_connection(conn_id) };
         err_2_result(code)
     }
+
     pub fn join_channel(
         conn_id: u32,
         channel_name: &str,
         uid: Option<u32>,
-        token: Option<&str>,
+        token: *const u8,
         options: rtc_channel_options_t,
     ) -> Result<(), ErrorCode> {
         let p_o: *mut rtc_channel_options_t =
             &options as *const rtc_channel_options_t as *mut rtc_channel_options_t;
-        let t = token.unwrap_or("");
-        let c_t: *const u8 = if t.is_empty() {
-            CString::new(t).map_or(null(), |c_t| c_t.as_ptr())
-        } else {
-            null()
-        };
         let c_chan_name = CString::new(channel_name).unwrap();
         let code = unsafe {
             // I believe this function won't modify token or options
-            agora_rtc_join_channel(conn_id, c_chan_name.as_ptr(), uid.unwrap_or(0), c_t, p_o)
+            agora_rtc_join_channel(conn_id, c_chan_name.as_ptr(), uid.unwrap_or(0), token, p_o)
         };
         err_2_result(code)
     }
@@ -287,8 +276,8 @@ pub mod agoraRTC {
 pub mod defaultCallbacks {
     use std::ffi::{c_void, CStr};
 
-    use log::{error, info, warn};
     use super::C::*;
+    use log::{error, info, warn};
     /// Occurs when local user joins channel successfully.
     /// * `conn_id` -  Connection identification
     /// * `uid`     -   local uid
@@ -329,7 +318,7 @@ pub mod defaultCallbacks {
             _ => "Other Error",
         };
         error!(
-            "ERROR!, conn_id: {}, {:?}, (Reason: {:?}, Code: {})",
+            "ERROR!, conn_id: {}, {:?}, {:?}, Code: {}",
             conn_id, message, m, code
         );
     }
