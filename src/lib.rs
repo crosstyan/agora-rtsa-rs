@@ -58,7 +58,7 @@ pub mod agoraRTC {
         pub area_code: AreaCode,
         pub product_id: [u8; 64],
         pub log_cfg: LogConfig,
-        pub license_value: String,
+        pub license_value: [u8; 33],
     }
 
     #[derive(Clone)]
@@ -66,16 +66,22 @@ pub mod agoraRTC {
         pub log_disable: bool,
         pub log_disable_desensitize: bool,
         pub log_level: LogLevel,
-        pub log_path: String,
+        /// Only accept static/string literal?
+        /// 用于存放 Agora SDK 日志的目录。如果 log_path 设为 NULL，则日志位于当前应用程序的 pwd 目录。
+        pub log_path: Option<&'static str>,
     }
 
     impl From<LogConfig> for log_config_t {
+        /// TODO: figure out why String isn't work
         fn from(config: LogConfig) -> Self {
+            let p_log_path = config.log_path.map_or(null(), |s|{
+                s.as_ptr()
+            });
             log_config_t {
                 log_disable: config.log_disable,
                 log_disable_desensitize: config.log_disable_desensitize,
                 log_level: config.log_level.into(),
-                log_path: config.log_path.as_ptr(),
+                log_path: p_log_path,
             }
         }
     }
@@ -86,11 +92,7 @@ pub mod agoraRTC {
                 area_code: opt.area_code.into(),
                 product_id: opt.product_id,
                 log_cfg: opt.log_cfg.into(),
-                license_value: opt
-                    .license_value
-                    .as_bytes()
-                    .try_into()
-                    .expect("License Value is too long!"),
+                license_value: opt.license_value
             }
         }
     }
@@ -360,11 +362,9 @@ pub mod agoraRTC {
         channel_name: &str,
         uid: Option<u32>,
         token: Option<&str>,
-        options: Option<rtc_channel_options_t>,
+        options: rtc_channel_options_t,
     ) -> Result<(), ErrorCode> {
-        let p_o: *mut rtc_channel_options_t = options.map_or(null_mut(), |opt| {
-            &opt as *const rtc_channel_options_t as *mut rtc_channel_options_t
-        });
+        let p_o: *mut rtc_channel_options_t = &options as *const rtc_channel_options_t as *mut rtc_channel_options_t;
         let p_t = token.map_or(null(), |t| t.as_ptr());
         let code = unsafe {
             // I believe this function won't modify token or options
