@@ -316,7 +316,7 @@ pub mod agoraRTC {
     // TODO: use a object wrapper
     // https://stackoverflow.com/questions/70840454/passing-a-safe-rust-function-pointer-to-c
     // https://adventures.michaelfbryan.com/posts/rust-closures-in-ffi/
-    /// init
+    /// init SDK
     pub fn init(
         app_id: &str,
         opt: RtcServiceOption,
@@ -330,6 +330,15 @@ pub mod agoraRTC {
             unsafe { agora_rtc_init(app_id.as_ptr(), p_handler, std::ptr::addr_of_mut!(opt_t)) };
         err_2_result(code)
     }
+
+    /// deinit SDK
+    pub fn deinit() -> Result<(), i32> {
+        let code = unsafe {
+            agora_rtc_fini()
+        };
+        err_2_result(code)
+    }
+
     pub fn create_connection() -> Result<u32, ErrorCode> {
         // https://doc.rust-lang.org/reference/expressions/operator-expr.html#type-cast-expressions
         // WARNING: this value will be mutated
