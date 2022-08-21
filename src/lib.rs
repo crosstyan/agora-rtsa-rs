@@ -18,6 +18,45 @@ pub mod agoraRTC {
     use std::option::Option;
     use std::ptr::{null, null_mut};
 
+
+    #[derive(Copy, Clone, FromPrimitive, IntoPrimitive)]
+    #[repr(u32)]
+    pub enum VideoDataType {
+        YUV420 = 0,
+        H264 = 2,
+        H265 = 3,
+        GENERIC = 6,
+        GENERIC_JPEG = 20,
+    } 
+
+    #[derive(Copy, Clone, FromPrimitive, IntoPrimitive)]
+    #[repr(u32)]
+    pub enum VideoFrameType {
+        AUTO = 0,
+        KEY = 3,
+        DELTA = 4,
+    }
+
+    #[derive(Copy, Clone, FromPrimitive, IntoPrimitive)]
+    #[repr(u32)]
+    pub enum VideoFrameRate {
+        FPS_1 = 1,
+        FPS_7 = 7,
+        FPS_10 = 10,
+        FPS_15 = 15,
+        FPS_24 = 24,
+        FPS_30 = 30,
+        /* 60: 60 fps. Applies to Windows and macOS only. */
+        FPS_60 = 60, 
+    }
+
+    #[derive(Copy, Clone, FromPrimitive, IntoPrimitive)]
+    #[repr(u32)]
+    pub enum VideoStreamQuality {
+        HIGH = 0,
+        LOW = 1,
+    }
+
     #[derive(Copy, Clone, FromPrimitive, IntoPrimitive)]
     #[repr(u32)]
     pub enum AreaCode {
@@ -94,7 +133,7 @@ pub mod agoraRTC {
         /// set [log_path_c] as [std::ptr::null()] will set the log path to pwd.
         /// 用于存放 Agora SDK 日志的目录。如果 log_path 设为 NULL，则日志位于当前应用程序的 pwd 目录。
         pub fn to_c_type(&self, log_path_c: *const u8) -> rtc_service_option_t {
-            let mut opt_t : rtc_service_option_t = self.into();
+            let mut opt_t: rtc_service_option_t = self.into();
             // You have to set logs before deallocation
             opt_t.log_cfg.log_path = log_path_c;
             opt_t
@@ -253,6 +292,7 @@ pub mod agoraRTC {
         };
         err_2_result(code)
     }
+
     pub fn leave_channel(conn_id: u32) -> Result<(), ErrorCode> {
         let code = unsafe { agora_rtc_leave_channel(conn_id) };
         err_2_result(code)
