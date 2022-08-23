@@ -107,7 +107,6 @@ pub mod agoraRTC {
     }
 
     impl From<LogConfig> for log_config_t {
-        /// TODO: figure out why String isn't work
         fn from(config: LogConfig) -> Self {
             log_config_t {
                 log_disable: config.log_disable,
@@ -132,10 +131,15 @@ pub mod agoraRTC {
     impl RtcServiceOption {
         /// set [log_path_c] as [std::ptr::null()] will set the log path to pwd.
         /// 用于存放 Agora SDK 日志的目录。如果 log_path 设为 NULL，则日志位于当前应用程序的 pwd 目录。
-        pub fn to_c_type(&self, log_path_c: *const u8) -> rtc_service_option_t {
+        pub fn to_c_type(&self, log_path_c: &CString) -> rtc_service_option_t {
             let mut opt_t: rtc_service_option_t = self.into();
             // You have to set logs before deallocation
-            opt_t.log_cfg.log_path = log_path_c;
+            let ptr = if log_path_c.to_string_lossy().is_empty() {
+                null()
+            } else {
+                log_path_c.as_ptr()
+            };
+            opt_t.log_cfg.log_path = ptr;
             opt_t
         }
     }
@@ -235,8 +239,9 @@ pub mod agoraRTC {
     // https://stackoverflow.com/questions/70840454/passing-a-safe-rust-function-pointer-to-c
     // https://adventures.michaelfbryan.com/posts/rust-closures-in-ffi/
     /// init SDK
+    /// * `app_id` - You have to use CString to handle null-terminated string since rust String/&str is not zero terminated
     pub fn init(
-        app_id: &str,
+        app_id: &CString,
         opt: rtc_service_option_t,
         handlers: agora_rtc_event_handler_t,
     ) -> Result<(), ErrorCode> {
@@ -244,10 +249,8 @@ pub mod agoraRTC {
         // I will use move for safty
         let mut opt_t: rtc_service_option_t = opt.into();
         let p_handler = &handlers as *const agora_rtc_event_handler_t;
-        // You have to use CString to handle null-terminated string since rust String/&str is not zero terminated
-        let c_app_id = CString::new(app_id).expect("CString::new failed");
         let code =
-            unsafe { agora_rtc_init(c_app_id.as_ptr(), p_handler, std::ptr::addr_of_mut!(opt_t)) };
+            unsafe { agora_rtc_init(app_id.as_ptr(), p_handler, std::ptr::addr_of_mut!(opt_t)) };
 
         err_2_result(code)
     }
@@ -278,17 +281,16 @@ pub mod agoraRTC {
 
     pub fn join_channel(
         conn_id: u32,
-        channel_name: &str,
+        channel_name: &CString,
         uid: Option<u32>,
-        token: *const u8,
+        token: &CString,
         options: rtc_channel_options_t,
     ) -> Result<(), ErrorCode> {
         let p_o: *mut rtc_channel_options_t =
             &options as *const rtc_channel_options_t as *mut rtc_channel_options_t;
-        let c_chan_name = CString::new(channel_name).unwrap();
         let code = unsafe {
             // I believe this function won't modify token or options
-            agora_rtc_join_channel(conn_id, c_chan_name.as_ptr(), uid.unwrap_or(0), token, p_o)
+            agora_rtc_join_channel(conn_id, channel_name.as_ptr(), uid.unwrap_or(0), token.as_ptr(), p_o)
         };
         err_2_result(code)
     }
