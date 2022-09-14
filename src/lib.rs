@@ -231,7 +231,7 @@ pub mod agoraRTC {
     }
 
     // I don't get intellisense in other file for some reason
-    struct AgoraApp {
+    pub struct AgoraApp {
         uid: u32,
         conn_id: Option<u32>,
         c_app_id: CString,
@@ -247,6 +247,7 @@ pub mod agoraRTC {
     // https://stackoverflow.com/questions/41510424/most-idiomatic-way-to-create-a-default-struct
     use super::utils::ToCString;
     impl AgoraApp {
+        /// using default handler
         pub fn new(app_id: &str) -> Self {
             Self {
                 c_app_id: app_id.to_c_string().unwrap(),
@@ -259,6 +260,10 @@ pub mod agoraRTC {
                 channel_option: None,
                 default_video_info: None,
             }
+        }
+
+        pub fn set_handlers(&mut self, handlers: agora_rtc_event_handler_t) {
+            self.handlers = handlers;
         }
 
         /// verify license without credential
