@@ -335,7 +335,7 @@ pub mod agoraRTC {
         pub fn send_video_data(
             &self,
             buf: &[u8],
-            info: &mut video_frame_info_t,
+            info: &video_frame_info_t,
         ) -> Result<(), ErrorCode> {
             let ptr = buf.as_ptr();
             let len: size_t = buf
@@ -343,7 +343,8 @@ pub mod agoraRTC {
                 .try_into()
                 .expect("error when converting buffer len in send_video_data");
             // don't think this function will actually mutate info
-            let p_i: *mut video_frame_info_t = std::ptr::addr_of_mut!(*info);
+            // Trust me
+            let p_i: *mut video_frame_info_t = std::ptr::addr_of!(*info) as *mut video_frame_info_t;
             let code = unsafe {
                 agora_rtc_send_video_data(
                     self.conn_id.expect("No connection id"),
@@ -359,9 +360,9 @@ pub mod agoraRTC {
             self.default_video_info = Some(info);
         }
 
-        pub fn send_video_data_default(&mut self, buf: &[u8]) -> Result<(), ErrorCode> {
-            let mut i = self.default_video_info.expect("No Video Info");
-            self.send_video_data(buf, &mut i)
+        pub fn send_video_data_default(&self, buf: &[u8]) -> Result<(), ErrorCode> {
+            let i = self.default_video_info.expect("No Video Info");
+            self.send_video_data(buf, &i)
         }
 
         /// deinit SDK
@@ -425,12 +426,15 @@ pub mod agoraRTC {
         // https://doc.rust-lang.org/nomicon/destructors.html
         // After drop is run, Rust will recursively try to drop all of the fields of self.
         fn drop(&mut self) {
-            // don't actually need to check if it's None
+            // don't actually need to check error. Don't care.
             self.leave_channel();
             self.destroy_connection();
             AgoraApp::deinit();
         }
     }
+    // just a decalration and no implementation (marker traits)
+    unsafe impl Send for AgoraApp {}
+    unsafe impl Sync for AgoraApp {}
 }
 
 #[cfg(test)]
