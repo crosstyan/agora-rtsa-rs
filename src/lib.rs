@@ -133,11 +133,14 @@ pub mod agoraRTC {
             // use heap
             // hope it will be freed by C (don't think so but don't think that's a problem)
             let b = Box::new(cs);
+            let ptr = Box::into_raw(b);
             log_config_t {
                 log_disable: config.log_disable,
                 log_disable_desensitize: config.log_disable_desensitize,
                 log_level: config.log_level.into(),
-                log_path: b.as_bytes().as_ptr(),
+                log_path: unsafe{
+                    ptr.as_ref().expect("box pointer is null!").as_ptr()
+                },
             }
         }
     }
@@ -314,17 +317,23 @@ pub mod agoraRTC {
             self.c_app_token = token.to_c_string().unwrap();
             self.uid = uid.unwrap_or(0);
             // I guess this temporary variable will be alive during the lifetime of AgoraApp
-            let mut opt = self.channel_option.expect("No Channel Option");
-            let p_opt = std::ptr::addr_of_mut!(opt);
+            let opt = self.channel_option.expect("No Channel Option");
+            // you can't just box.as_ptr() since it will be dropped after this function
+            // use Box::into_raw() instead
+            // BUT the memory won't be release! If you call this function twice (or many times),
+            // it will cause memory leak
+            // TODO: find a way to solve it
+            let b = Box::new(opt);
+            let ptr = Box::into_raw(b);
 
             let code = unsafe {
                 // I believe this function won't modify token or options
                 agora_rtc_join_channel(
                     self.conn_id.expect("no connection id"),
-                    channel_name.as_ptr(),
+                    self.c_channel_name.as_ptr(),
                     uid.unwrap_or(0),
-                    token.as_ptr(),
-                    p_opt,
+                    self.c_app_token.as_ptr(),
+                    ptr,
                 )
             };
             err_2_result(code)
