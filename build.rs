@@ -21,6 +21,7 @@ fn main() {
     let bindings = bindgen::Builder::default()
         // The input header we would like to generate
         // bindings for.
+        .no_copy("log_config_t")
         .header(header)
         // Tell cargo to invalidate the built crate whenever any of the
         // included header files changed.

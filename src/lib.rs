@@ -133,15 +133,23 @@ pub mod agoraRTC {
             // use heap
             // hope it will be freed by C (don't think so but don't think that's a problem)
             let b = Box::new(cs);
+            // box give up ownership
             let ptr = Box::into_raw(b);
             log_config_t {
                 log_disable: config.log_disable,
                 log_disable_desensitize: config.log_disable_desensitize,
                 log_level: config.log_level.into(),
-                log_path: unsafe{
-                    ptr.as_ref().expect("box pointer is null!").as_ptr()
-                },
+                log_path: unsafe { ptr.as_ref().unwrap().as_ptr() },
             }
+        }
+    }
+
+    // the trait `Copy` may not be implemented for this type; the type has a destructor
+    // not sure if it's correct
+    impl Drop for log_config_t {
+        fn drop(&mut self) {
+            let cs = unsafe { CString::from_raw(self.log_path as *mut u8) };
+            drop(cs);
         }
     }
 
@@ -293,12 +301,12 @@ pub mod agoraRTC {
             self.service_option = Some(option.into());
             // opt_t should keeps living during the programming running (Static lifetime?)
             // I will use move for safty
-            let mut opt = self.service_option.expect("No Service Option");
+            let opt = self.service_option.as_mut().expect("No Service Option");
             let code = unsafe {
                 agora_rtc_init(
                     self.c_app_id.as_ptr(),
                     std::ptr::addr_of!(self.handlers),
-                    std::ptr::addr_of_mut!(opt),
+                    opt,
                 )
             };
 
@@ -316,15 +324,9 @@ pub mod agoraRTC {
             self.c_channel_name = channel_name.to_c_string().unwrap();
             self.c_app_token = token.to_c_string().unwrap();
             self.uid = uid.unwrap_or(0);
-            // I guess this temporary variable will be alive during the lifetime of AgoraApp
-            let opt = self.channel_option.expect("No Channel Option");
-            // you can't just box.as_ptr() since it will be dropped after this function
-            // use Box::into_raw() instead
-            // BUT the memory won't be release! If you call this function twice (or many times),
-            // it will cause memory leak
-            // TODO: find a way to solve it
-            let b = Box::new(opt);
-            let ptr = Box::into_raw(b);
+            // https://doc.rust-lang.org/std/primitive.pointer.html
+            // reference will be coerced to *const c_char
+            let opt = self.channel_option.as_mut().expect("No Channel Option");
 
             let code = unsafe {
                 // I believe this function won't modify token or options
@@ -333,7 +335,7 @@ pub mod agoraRTC {
                     self.c_channel_name.as_ptr(),
                     uid.unwrap_or(0),
                     self.c_app_token.as_ptr(),
-                    ptr,
+                    opt,
                 )
             };
             err_2_result(code)
