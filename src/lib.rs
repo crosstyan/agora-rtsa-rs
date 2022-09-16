@@ -254,7 +254,6 @@ pub mod agoraRTC {
         default_video_info: Option<video_frame_info_t>,
     }
 
-    // maybe derive Default?
     // https://stackoverflow.com/questions/41510424/most-idiomatic-way-to-create-a-default-struct
     use super::utils::ToCString;
     impl AgoraApp {
@@ -301,7 +300,8 @@ pub mod agoraRTC {
             self.service_option = Some(option.into());
             // opt_t should keeps living during the programming running (Static lifetime?)
             // I will use move for safty
-            let opt = self.service_option.as_mut().expect("No Service Option");
+            let opt: &mut rtc_service_option_t =
+                self.service_option.as_mut().expect("No Service Option");
             let code = unsafe {
                 agora_rtc_init(
                     self.c_app_id.as_ptr(),
@@ -438,9 +438,9 @@ pub mod agoraRTC {
         // After drop is run, Rust will recursively try to drop all of the fields of self.
         fn drop(&mut self) {
             // don't actually need to check error. Don't care.
-            self.leave_channel();
-            self.destroy_connection();
-            AgoraApp::deinit();
+            let _ = self.leave_channel();
+            let _ = self.destroy_connection();
+            let _ = AgoraApp::deinit();
         }
     }
     // just a decalration and no implementation (marker traits)
