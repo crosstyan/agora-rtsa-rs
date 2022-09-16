@@ -21,8 +21,9 @@ fn main() {
     let bindings = bindgen::Builder::default()
         // The input header we would like to generate
         // bindings for.
-        .no_copy("log_config_t")
         .header(header)
+        // https://rust-lang.github.io/rust-bindgen/nocopy.html
+        .no_copy("log_config_t")
         // Tell cargo to invalidate the built crate whenever any of the
         // included header files changed.
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))
