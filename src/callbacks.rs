@@ -116,7 +116,7 @@ pub extern "C" fn on_target_bitrate_changed(conn_id: u32, target_bps: u32) {
 
 pub extern "C" fn on_key_frame_gen_req(conn_id: u32, uid: u32, stream_type: u32) {
     info!(
-        "user_mute_audio, conn_id: {}, uid: {}, video_stream_type_e: {}",
+        "key_frame_gen_req, conn_id: {}, uid: {}, video_stream_type_e: {}",
         conn_id, uid, stream_type
     );
 }
@@ -124,7 +124,7 @@ pub extern "C" fn on_key_frame_gen_req(conn_id: u32, uid: u32, stream_type: u32)
 pub extern "C" fn on_token_privilege_will_expire(conn_id: u32, token: *const u8) {
     let t = unsafe { CStr::from_ptr(token) }.to_str();
     info!(
-        "user_mute_audio, conn_id: {}, The token will expire: {:?}",
+        "token_privilege_will_expire, conn_id: {}, The token will expire: {:?}",
         conn_id, t
     );
 }
