@@ -130,16 +130,12 @@ pub mod agoraRTC {
     impl From<LogConfig> for log_config_t {
         fn from(config: LogConfig) -> Self {
             let cs = CString::new(config.log_path).unwrap();
-            // use heap
-            // hope it will be freed by C (don't think so but don't think that's a problem)
-            let b = Box::new(cs);
-            // box give up ownership
-            let ptr = Box::into_raw(b);
+            let ptr = CString::into_raw(cs);
             log_config_t {
                 log_disable: config.log_disable,
                 log_disable_desensitize: config.log_disable_desensitize,
                 log_level: config.log_level.into(),
-                log_path: unsafe { ptr.as_ref().unwrap().as_ptr() },
+                log_path: ptr,
             }
         }
     }
