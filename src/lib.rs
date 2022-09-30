@@ -432,6 +432,15 @@ pub mod agoraRTC {
             }
         }
 
+        /// equivalent to `drop`.
+        /// useful when you want to deinit SDK but don't want to/can't drop the object. (like behind a Arc/Mutex)
+        /// Not recommended to use this function directly. 
+        pub fn fini(&mut self) {
+            let _ = self.leave_channel();
+            let _ = self.destroy_connection();
+            let _ = unsafe { AgoraApp::deinit() };
+        }
+
         pub fn leave_channel(&mut self) -> Result<(), ErrorCode> {
             match self.conn_id {
                 Some(id) => {
@@ -457,10 +466,7 @@ pub mod agoraRTC {
         // https://doc.rust-lang.org/nomicon/destructors.html
         // After drop is run, Rust will recursively try to drop all of the fields of self.
         fn drop(&mut self) {
-            // don't actually need to check error. Don't care.
-            let _ = self.leave_channel();
-            let _ = self.destroy_connection();
-            let _ = unsafe { AgoraApp::deinit() };
+            self.fini();
         }
     }
     // just a decalration and no implementation (marker traits)
