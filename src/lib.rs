@@ -244,6 +244,8 @@ pub mod agoraRTC {
         c_app_id: CString,
         c_channel_name: CString,
         c_app_token: CString,
+        /// I guess you can only join one channel at a time
+        is_joined: bool,
         handlers: agora_rtc_event_handler_t,
         service_option: Option<rtc_service_option_t>,
         channel_option: Option<rtc_channel_options_t>,
@@ -253,6 +255,19 @@ pub mod agoraRTC {
     // https://stackoverflow.com/questions/41510424/most-idiomatic-way-to-create-a-default-struct
     use super::utils::ToCString;
     impl AgoraApp {
+        pub fn uid(&self) -> u32 {
+            self.uid
+        }
+        pub fn conn_id(&self) -> Option<u32> {
+            self.conn_id
+        }
+        pub fn app_id(&self) -> &str {
+            self.c_app_id.to_str().unwrap()
+        }
+        /// I guess you can only join one channel at a time
+        pub fn is_joined(&self) -> bool {
+            self.is_joined
+        }
         /// using default handler
         pub fn new(app_id: &str) -> Self {
             Self {
@@ -261,6 +276,7 @@ pub mod agoraRTC {
                 c_app_token: "".to_c_string().unwrap(),
                 uid: 0,
                 conn_id: None,
+                is_joined: false,
                 handlers: agora_rtc_event_handler_t::new(),
                 service_option: None,
                 channel_option: None,
@@ -334,7 +350,11 @@ pub mod agoraRTC {
                     opt,
                 )
             };
-            err_2_result(code)
+            let res = err_2_result(code);
+            if Ok(()) == res {
+                self.is_joined = true;
+            }
+            res
         }
 
         // TODO: better error handling
@@ -372,9 +392,11 @@ pub mod agoraRTC {
             self.send_video_data(buf, &i)
         }
 
-        /// deinit SDK
-        pub fn deinit() -> Result<(), i32> {
-            let code = unsafe { agora_rtc_fini() };
+        /// deinit SDK.
+        /// Don't call this function directly. unless you know what you are doing.
+        /// Try to use drop instead.
+        pub unsafe fn deinit() -> Result<(), i32> {
+            let code = agora_rtc_fini();
             err_2_result(code)
         }
 
@@ -400,6 +422,7 @@ pub mod agoraRTC {
                 Some(id) => {
                     let code = unsafe { agora_rtc_destroy_connection(id) };
                     self.conn_id = None;
+                    self.is_joined = false;
                     err_2_result(code)
                 }
                 None => {
@@ -409,10 +432,11 @@ pub mod agoraRTC {
             }
         }
 
-        pub fn leave_channel(&self) -> Result<(), ErrorCode> {
+        pub fn leave_channel(&mut self) -> Result<(), ErrorCode> {
             match self.conn_id {
                 Some(id) => {
                     let code = unsafe { agora_rtc_leave_channel(id) };
+                    self.is_joined = false;
                     err_2_result(code)
                 }
                 None => {
@@ -436,7 +460,7 @@ pub mod agoraRTC {
             // don't actually need to check error. Don't care.
             let _ = self.leave_channel();
             let _ = self.destroy_connection();
-            let _ = AgoraApp::deinit();
+            let _ = unsafe { AgoraApp::deinit() };
         }
     }
     // just a decalration and no implementation (marker traits)
