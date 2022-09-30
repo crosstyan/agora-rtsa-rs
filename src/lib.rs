@@ -2,9 +2,9 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-pub mod C {
-    include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
-}
+/// This module contains the generated bindings from `bindgen`.
+/// Just copy and paste from `bindings.rs` to here.
+pub mod ffi;
 
 // https://stackoverflow.com/questions/24145823/how-do-i-convert-a-c-string-into-a-rust-string-and-back-via-ffi
 // https://doc.rust-lang.org/reference/items/extern-crates.htm
@@ -14,7 +14,7 @@ mod callbacks;
 mod utils;
 pub mod agoraRTC {
     use super::callbacks::*;
-    use super::C::*;
+    use super::ffi::*;
     use log::warn;
     use num_derive::FromPrimitive;
     use num_enum::IntoPrimitive;

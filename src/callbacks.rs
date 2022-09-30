@@ -1,6 +1,6 @@
 use std::ffi::{c_void, CStr};
 
-use super::C::*;
+use super::ffi::*;
 use log::{error, info, warn};
 /// Occurs when local user joins channel successfully.
 /// * `conn_id` -  Connection identification
