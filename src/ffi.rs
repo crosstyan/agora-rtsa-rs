@@ -340,6 +340,19 @@ pub const agora_err_code_e_ERR_AUDIO_DECODER_NOT_MATCH_AUDIO_FRAME: agora_err_co
 pub const agora_err_code_e_ERR_NO_AUDIO_DECODER_TO_HANDLE_AUDIO_FRAME: agora_err_code_e = 202;
 #[doc = " Error code."]
 pub type agora_err_code_e = ::std::os::raw::c_uint;
+#[doc = " 1: Invalid license"]
+pub const license_err_reason_e_ERR_LICENSE_INVALID: license_err_reason_e = 1;
+#[doc = " 2: License expired"]
+pub const license_err_reason_e_ERR_LICENSE_EXPIRE: license_err_reason_e = 2;
+#[doc = " 3: Exceed license minutes limit"]
+pub const license_err_reason_e_ERR_LICENSE_MINUTES_EXCEED: license_err_reason_e = 3;
+#[doc = " 4: License use in limited period"]
+pub const license_err_reason_e_ERR_LICENSE_LIMITED_PERIOD: license_err_reason_e = 4;
+#[doc = " 5: Same license used in different devices at the same time"]
+pub const license_err_reason_e_ERR_LICENSE_DIFF_DEVICES: license_err_reason_e = 5;
+#[doc = " 99: SDK internal error"]
+pub const license_err_reason_e_ERR_LICENSE_INTERNAL: license_err_reason_e = 99;
+pub type license_err_reason_e = ::std::os::raw::c_uint;
 #[doc = " 0: Remote user leaves channel actively"]
 pub const user_offline_reason_e_USER_OFFLINE_QUIT: user_offline_reason_e = 0;
 #[doc = " 1: Remote user is dropped due to timeout"]
@@ -384,6 +397,15 @@ pub const video_stream_type_e_VIDEO_STREAM_HIGH: video_stream_type_e = 0;
 pub const video_stream_type_e_VIDEO_STREAM_LOW: video_stream_type_e = 1;
 #[doc = " Video stream types."]
 pub type video_stream_type_e = ::std::os::raw::c_uint;
+#[doc = " 0: Rotate the video by 0 degree clockwise."]
+pub const video_orientation_e_VIDEO_ORIENTATION_0: video_orientation_e = 0;
+#[doc = " 90: Rotate the video by 90 degrees clockwise."]
+pub const video_orientation_e_VIDEO_ORIENTATION_90: video_orientation_e = 1;
+#[doc = " 180: Rotate the video by 180 degrees clockwise."]
+pub const video_orientation_e_VIDEO_ORIENTATION_180: video_orientation_e = 2;
+#[doc = " 270: Rotate the video by 270 degrees clockwise."]
+pub const video_orientation_e_VIDEO_ORIENTATION_270: video_orientation_e = 3;
+pub type video_orientation_e = ::std::os::raw::c_uint;
 #[doc = " The definition of the video_frame_info_t struct."]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -399,12 +421,14 @@ pub struct video_frame_info_t {
     #[doc = " - If frame_per_sec equals zero, then real timestamp will be used."]
     #[doc = " - Otherwise, timestamp will be adjusted to the value of frame_per_sec set."]
     pub frame_rate: video_frame_rate_e,
+    #[doc = " The rotation information of the encoded video frame: #VIDEO_ORIENTATION."]
+    pub rotation: video_orientation_e,
 }
 #[test]
 fn bindgen_test_layout_video_frame_info_t() {
     assert_eq!(
         ::std::mem::size_of::<video_frame_info_t>(),
-        16usize,
+        20usize,
         concat!("Size of: ", stringify!(video_frame_info_t))
     );
     assert_eq!(
@@ -480,6 +504,23 @@ fn bindgen_test_layout_video_frame_info_t() {
         );
     }
     test_field_frame_rate();
+    fn test_field_rotation() {
+        assert_eq!(
+            unsafe {
+                let uninit = ::std::mem::MaybeUninit::<video_frame_info_t>::uninit();
+                let ptr = uninit.as_ptr();
+                ::std::ptr::addr_of!((*ptr).rotation) as usize - ptr as usize
+            },
+            16usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(video_frame_info_t),
+                "::",
+                stringify!(rotation)
+            )
+        );
+    }
+    test_field_rotation();
 }
 #[doc = " 0: Disable"]
 pub const audio_codec_type_e_AUDIO_CODEC_DISABLED: audio_codec_type_e = 0;
@@ -584,12 +625,16 @@ pub struct log_config_t {
     pub log_disable_desensitize: bool,
     pub log_level: rtc_log_level_e,
     pub log_path: *const ::std::os::raw::c_char,
+    pub log_tag: *const ::std::os::raw::c_char,
+    pub log_printf: ::std::option::Option<
+        unsafe extern "C" fn(fmt: *const ::std::os::raw::c_char, ...) -> ::std::os::raw::c_int,
+    >,
 }
 #[test]
 fn bindgen_test_layout_log_config_t() {
     assert_eq!(
         ::std::mem::size_of::<log_config_t>(),
-        16usize,
+        32usize,
         concat!("Size of: ", stringify!(log_config_t))
     );
     assert_eq!(
@@ -665,6 +710,40 @@ fn bindgen_test_layout_log_config_t() {
         );
     }
     test_field_log_path();
+    fn test_field_log_tag() {
+        assert_eq!(
+            unsafe {
+                let uninit = ::std::mem::MaybeUninit::<log_config_t>::uninit();
+                let ptr = uninit.as_ptr();
+                ::std::ptr::addr_of!((*ptr).log_tag) as usize - ptr as usize
+            },
+            16usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(log_config_t),
+                "::",
+                stringify!(log_tag)
+            )
+        );
+    }
+    test_field_log_tag();
+    fn test_field_log_printf() {
+        assert_eq!(
+            unsafe {
+                let uninit = ::std::mem::MaybeUninit::<log_config_t>::uninit();
+                let ptr = uninit.as_ptr();
+                ::std::ptr::addr_of!((*ptr).log_printf) as usize - ptr as usize
+            },
+            24usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(log_config_t),
+                "::",
+                stringify!(log_printf)
+            )
+        );
+    }
+    test_field_log_printf();
 }
 #[doc = " The definition of the service option"]
 #[repr(C)]
@@ -683,12 +762,16 @@ pub struct rtc_service_option_t {
     #[doc = " - The 26 uppercase English letters: A to Z"]
     #[doc = " - The 10 numbers: 0 to 9"]
     pub license_value: [::std::os::raw::c_char; 33usize],
+    #[doc = " Determines whether to enable domain limit."]
+    #[doc = " - `true`: only connect to servers that already parsed by DNS"]
+    #[doc = " - `false`: (Default) connect to servers with no limit"]
+    pub domain_limit: bool,
 }
 #[test]
 fn bindgen_test_layout_rtc_service_option_t() {
     assert_eq!(
         ::std::mem::size_of::<rtc_service_option_t>(),
-        128usize,
+        144usize,
         concat!("Size of: ", stringify!(rtc_service_option_t))
     );
     assert_eq!(
@@ -754,7 +837,7 @@ fn bindgen_test_layout_rtc_service_option_t() {
                 let ptr = uninit.as_ptr();
                 ::std::ptr::addr_of!((*ptr).license_value) as usize - ptr as usize
             },
-            88usize,
+            104usize,
             concat!(
                 "Offset of field: ",
                 stringify!(rtc_service_option_t),
@@ -764,6 +847,23 @@ fn bindgen_test_layout_rtc_service_option_t() {
         );
     }
     test_field_license_value();
+    fn test_field_domain_limit() {
+        assert_eq!(
+            unsafe {
+                let uninit = ::std::mem::MaybeUninit::<rtc_service_option_t>::uninit();
+                let ptr = uninit.as_ptr();
+                ::std::ptr::addr_of!((*ptr).domain_limit) as usize - ptr as usize
+            },
+            137usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(rtc_service_option_t),
+                "::",
+                stringify!(domain_limit)
+            )
+        );
+    }
+    test_field_domain_limit();
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -842,6 +942,114 @@ fn bindgen_test_layout_audio_codec_option_t() {
     }
     test_field_pcm_channel_num();
 }
+#[doc = " The definition of the rtc_audio_process_options_t struct."]
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct rtc_audio_process_options_t {
+    pub enable_audio_process: bool,
+    pub enable_aec: bool,
+    pub enable_ns: bool,
+    pub ref_data_from_sdk: bool,
+    pub enable_dump_data: bool,
+}
+#[test]
+fn bindgen_test_layout_rtc_audio_process_options_t() {
+    assert_eq!(
+        ::std::mem::size_of::<rtc_audio_process_options_t>(),
+        5usize,
+        concat!("Size of: ", stringify!(rtc_audio_process_options_t))
+    );
+    assert_eq!(
+        ::std::mem::align_of::<rtc_audio_process_options_t>(),
+        1usize,
+        concat!("Alignment of ", stringify!(rtc_audio_process_options_t))
+    );
+    fn test_field_enable_audio_process() {
+        assert_eq!(
+            unsafe {
+                let uninit = ::std::mem::MaybeUninit::<rtc_audio_process_options_t>::uninit();
+                let ptr = uninit.as_ptr();
+                ::std::ptr::addr_of!((*ptr).enable_audio_process) as usize - ptr as usize
+            },
+            0usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(rtc_audio_process_options_t),
+                "::",
+                stringify!(enable_audio_process)
+            )
+        );
+    }
+    test_field_enable_audio_process();
+    fn test_field_enable_aec() {
+        assert_eq!(
+            unsafe {
+                let uninit = ::std::mem::MaybeUninit::<rtc_audio_process_options_t>::uninit();
+                let ptr = uninit.as_ptr();
+                ::std::ptr::addr_of!((*ptr).enable_aec) as usize - ptr as usize
+            },
+            1usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(rtc_audio_process_options_t),
+                "::",
+                stringify!(enable_aec)
+            )
+        );
+    }
+    test_field_enable_aec();
+    fn test_field_enable_ns() {
+        assert_eq!(
+            unsafe {
+                let uninit = ::std::mem::MaybeUninit::<rtc_audio_process_options_t>::uninit();
+                let ptr = uninit.as_ptr();
+                ::std::ptr::addr_of!((*ptr).enable_ns) as usize - ptr as usize
+            },
+            2usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(rtc_audio_process_options_t),
+                "::",
+                stringify!(enable_ns)
+            )
+        );
+    }
+    test_field_enable_ns();
+    fn test_field_ref_data_from_sdk() {
+        assert_eq!(
+            unsafe {
+                let uninit = ::std::mem::MaybeUninit::<rtc_audio_process_options_t>::uninit();
+                let ptr = uninit.as_ptr();
+                ::std::ptr::addr_of!((*ptr).ref_data_from_sdk) as usize - ptr as usize
+            },
+            3usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(rtc_audio_process_options_t),
+                "::",
+                stringify!(ref_data_from_sdk)
+            )
+        );
+    }
+    test_field_ref_data_from_sdk();
+    fn test_field_enable_dump_data() {
+        assert_eq!(
+            unsafe {
+                let uninit = ::std::mem::MaybeUninit::<rtc_audio_process_options_t>::uninit();
+                let ptr = uninit.as_ptr();
+                ::std::ptr::addr_of!((*ptr).enable_dump_data) as usize - ptr as usize
+            },
+            4usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(rtc_audio_process_options_t),
+                "::",
+                stringify!(enable_dump_data)
+            )
+        );
+    }
+    test_field_enable_dump_data();
+}
 #[doc = " The definition of the rtc_channel_options_t struct."]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -852,13 +1060,14 @@ pub struct rtc_channel_options_t {
     pub enable_audio_jitter_buffer: bool,
     pub enable_audio_mixer: bool,
     pub audio_codec_opt: audio_codec_option_t,
+    pub audio_process_opt: rtc_audio_process_options_t,
     pub enable_aut_encryption: bool,
 }
 #[test]
 fn bindgen_test_layout_rtc_channel_options_t() {
     assert_eq!(
         ::std::mem::size_of::<rtc_channel_options_t>(),
-        24usize,
+        28usize,
         concat!("Size of: ", stringify!(rtc_channel_options_t))
     );
     assert_eq!(
@@ -968,6 +1177,23 @@ fn bindgen_test_layout_rtc_channel_options_t() {
         );
     }
     test_field_audio_codec_opt();
+    fn test_field_audio_process_opt() {
+        assert_eq!(
+            unsafe {
+                let uninit = ::std::mem::MaybeUninit::<rtc_channel_options_t>::uninit();
+                let ptr = uninit.as_ptr();
+                ::std::ptr::addr_of!((*ptr).audio_process_opt) as usize - ptr as usize
+            },
+            20usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(rtc_channel_options_t),
+                "::",
+                stringify!(audio_process_opt)
+            )
+        );
+    }
+    test_field_audio_process_opt();
     fn test_field_enable_aut_encryption() {
         assert_eq!(
             unsafe {
@@ -975,7 +1201,7 @@ fn bindgen_test_layout_rtc_channel_options_t() {
                 let ptr = uninit.as_ptr();
                 ::std::ptr::addr_of!((*ptr).enable_aut_encryption) as usize - ptr as usize
             },
-            20usize,
+            25usize,
             concat!(
                 "Offset of field: ",
                 stringify!(rtc_channel_options_t),
@@ -1096,6 +1322,14 @@ pub struct agora_rtc_event_handler_t {
     #[doc = " @param[in] elapsed_ms Time elapsed (ms) since rejoin due to network"]
     pub on_rejoin_channel_success: ::std::option::Option<
         unsafe extern "C" fn(conn_id: connection_id_t, uid: u32, elapsed_ms: ::std::os::raw::c_int),
+    >,
+    #[doc = " Occurs when connection license verification fails"]
+    #[doc = ""]
+    #[doc = " You can know the reason accordding to error code"]
+    #[doc = " @param[in] conn_id Connection identification"]
+    #[doc = " @param[in] error   Error code, see #license_err_code_e"]
+    pub on_license_validation_failure: ::std::option::Option<
+        unsafe extern "C" fn(conn_id: connection_id_t, error: ::std::os::raw::c_int),
     >,
     #[doc = " Report error message during runtime."]
     #[doc = ""]
@@ -1225,7 +1459,7 @@ pub struct agora_rtc_event_handler_t {
 fn bindgen_test_layout_agora_rtc_event_handler_t() {
     assert_eq!(
         ::std::mem::size_of::<agora_rtc_event_handler_t>(),
-        112usize,
+        120usize,
         concat!("Size of: ", stringify!(agora_rtc_event_handler_t))
     );
     assert_eq!(
@@ -1284,6 +1518,23 @@ fn bindgen_test_layout_agora_rtc_event_handler_t() {
         );
     }
     test_field_on_rejoin_channel_success();
+    fn test_field_on_license_validation_failure() {
+        assert_eq!(
+            unsafe {
+                let uninit = ::std::mem::MaybeUninit::<agora_rtc_event_handler_t>::uninit();
+                let ptr = uninit.as_ptr();
+                ::std::ptr::addr_of!((*ptr).on_license_validation_failure) as usize - ptr as usize
+            },
+            24usize,
+            concat!(
+                "Offset of field: ",
+                stringify!(agora_rtc_event_handler_t),
+                "::",
+                stringify!(on_license_validation_failure)
+            )
+        );
+    }
+    test_field_on_license_validation_failure();
     fn test_field_on_error() {
         assert_eq!(
             unsafe {
@@ -1291,7 +1542,7 @@ fn bindgen_test_layout_agora_rtc_event_handler_t() {
                 let ptr = uninit.as_ptr();
                 ::std::ptr::addr_of!((*ptr).on_error) as usize - ptr as usize
             },
-            24usize,
+            32usize,
             concat!(
                 "Offset of field: ",
                 stringify!(agora_rtc_event_handler_t),
@@ -1308,7 +1559,7 @@ fn bindgen_test_layout_agora_rtc_event_handler_t() {
                 let ptr = uninit.as_ptr();
                 ::std::ptr::addr_of!((*ptr).on_user_joined) as usize - ptr as usize
             },
-            32usize,
+            40usize,
             concat!(
                 "Offset of field: ",
                 stringify!(agora_rtc_event_handler_t),
@@ -1325,7 +1576,7 @@ fn bindgen_test_layout_agora_rtc_event_handler_t() {
                 let ptr = uninit.as_ptr();
                 ::std::ptr::addr_of!((*ptr).on_user_offline) as usize - ptr as usize
             },
-            40usize,
+            48usize,
             concat!(
                 "Offset of field: ",
                 stringify!(agora_rtc_event_handler_t),
@@ -1342,7 +1593,7 @@ fn bindgen_test_layout_agora_rtc_event_handler_t() {
                 let ptr = uninit.as_ptr();
                 ::std::ptr::addr_of!((*ptr).on_user_mute_audio) as usize - ptr as usize
             },
-            48usize,
+            56usize,
             concat!(
                 "Offset of field: ",
                 stringify!(agora_rtc_event_handler_t),
@@ -1359,7 +1610,7 @@ fn bindgen_test_layout_agora_rtc_event_handler_t() {
                 let ptr = uninit.as_ptr();
                 ::std::ptr::addr_of!((*ptr).on_user_mute_video) as usize - ptr as usize
             },
-            56usize,
+            64usize,
             concat!(
                 "Offset of field: ",
                 stringify!(agora_rtc_event_handler_t),
@@ -1376,7 +1627,7 @@ fn bindgen_test_layout_agora_rtc_event_handler_t() {
                 let ptr = uninit.as_ptr();
                 ::std::ptr::addr_of!((*ptr).on_audio_data) as usize - ptr as usize
             },
-            64usize,
+            72usize,
             concat!(
                 "Offset of field: ",
                 stringify!(agora_rtc_event_handler_t),
@@ -1393,7 +1644,7 @@ fn bindgen_test_layout_agora_rtc_event_handler_t() {
                 let ptr = uninit.as_ptr();
                 ::std::ptr::addr_of!((*ptr).on_mixed_audio_data) as usize - ptr as usize
             },
-            72usize,
+            80usize,
             concat!(
                 "Offset of field: ",
                 stringify!(agora_rtc_event_handler_t),
@@ -1410,7 +1661,7 @@ fn bindgen_test_layout_agora_rtc_event_handler_t() {
                 let ptr = uninit.as_ptr();
                 ::std::ptr::addr_of!((*ptr).on_video_data) as usize - ptr as usize
             },
-            80usize,
+            88usize,
             concat!(
                 "Offset of field: ",
                 stringify!(agora_rtc_event_handler_t),
@@ -1427,7 +1678,7 @@ fn bindgen_test_layout_agora_rtc_event_handler_t() {
                 let ptr = uninit.as_ptr();
                 ::std::ptr::addr_of!((*ptr).on_target_bitrate_changed) as usize - ptr as usize
             },
-            88usize,
+            96usize,
             concat!(
                 "Offset of field: ",
                 stringify!(agora_rtc_event_handler_t),
@@ -1444,7 +1695,7 @@ fn bindgen_test_layout_agora_rtc_event_handler_t() {
                 let ptr = uninit.as_ptr();
                 ::std::ptr::addr_of!((*ptr).on_key_frame_gen_req) as usize - ptr as usize
             },
-            96usize,
+            104usize,
             concat!(
                 "Offset of field: ",
                 stringify!(agora_rtc_event_handler_t),
@@ -1461,7 +1712,7 @@ fn bindgen_test_layout_agora_rtc_event_handler_t() {
                 let ptr = uninit.as_ptr();
                 ::std::ptr::addr_of!((*ptr).on_token_privilege_will_expire) as usize - ptr as usize
             },
-            104usize,
+            112usize,
             concat!(
                 "Offset of field: ",
                 stringify!(agora_rtc_event_handler_t),
@@ -1483,41 +1734,6 @@ extern "C" {
     #[doc = " @param[in] err Error code"]
     #[doc = " @return Const static error string"]
     pub fn agora_rtc_err_2_str(err: ::std::os::raw::c_int) -> *const ::std::os::raw::c_char;
-}
-extern "C" {
-    #[doc = " @brief Generate a credential which is a unique device identifier."]
-    #[doc = " @note It's authorizing smart devices license."]
-    #[doc = "       You can disregard it if license isn't used."]
-    #[doc = " @param[out]    credential        Credential buffer holding the generated data"]
-    #[doc = " @param[in,out] credential_len    Credential buffer length (bytes), which should be larger than AGORA_CREDENTIAL_MAX_LEN"]
-    #[doc = " @return"]
-    #[doc = " - = 0: Success"]
-    #[doc = " - < 0: Failure"]
-    pub fn agora_rtc_license_gen_credential(
-        credential: *mut ::std::os::raw::c_char,
-        credential_len: *mut ::std::os::raw::c_uint,
-    ) -> ::std::os::raw::c_int;
-}
-extern "C" {
-    #[doc = " @brief Authenticate the SDK licence."]
-    #[doc = " @note"]
-    #[doc = " - It's authorizing smart devices license."]
-    #[doc = "   You can disregard it if you do not use a license."]
-    #[doc = "   Once the license is enabled, only the authenticated SDK can be used."]
-    #[doc = " - This API should be invoked before agora_rtc_init"]
-    #[doc = " @param[in] certificate     Certificate buffer"]
-    #[doc = " @param[in] certificate_len Certificate buffer length"]
-    #[doc = " @param[in] credential      Credential buffer"]
-    #[doc = " @param[in] credential_len  Credential buffer length"]
-    #[doc = " @return"]
-    #[doc = " - = 0: Success"]
-    #[doc = " - < 0: Failure"]
-    pub fn agora_rtc_license_verify(
-        certificate: *const ::std::os::raw::c_char,
-        certificate_len: ::std::os::raw::c_int,
-        credential: *const ::std::os::raw::c_char,
-        credential_len: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_int;
 }
 extern "C" {
     #[doc = " @brief Initialize the Agora RTSA service."]

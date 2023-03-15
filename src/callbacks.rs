@@ -1,5 +1,5 @@
 use std::ffi::{c_void, CStr};
-
+use super::utils::{err_2_reason};
 use super::ffi::*;
 use log::{error, info, warn};
 /// Occurs when local user joins channel successfully.
@@ -126,5 +126,13 @@ pub extern "C" fn on_token_privilege_will_expire(conn_id: u32, token: *const u8)
     info!(
         "token_privilege_will_expire, conn_id: {}, The token will expire: {:?}",
         conn_id, t
+    );
+}
+
+pub extern "C" fn on_license_validation_failure(conn_id: connection_id_t, error: i32) {
+    let reason = err_2_reason(error);
+    error!(
+        "license_validation_failure, conn_id: {}, error: {}, reason: {:?}",
+        conn_id, error, reason
     );
 }

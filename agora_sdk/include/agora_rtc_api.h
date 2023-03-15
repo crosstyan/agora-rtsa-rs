@@ -135,6 +135,33 @@ typedef enum {
   ERR_NO_AUDIO_DECODER_TO_HANDLE_AUDIO_FRAME = 202,
 } agora_err_code_e;
 
+typedef enum {
+  /**
+   * 1: Invalid license
+  */
+  ERR_LICENSE_INVALID = 1,
+  /**
+   * 2: License expired
+  */
+  ERR_LICENSE_EXPIRE = 2,
+  /**
+   * 3: Exceed license minutes limit
+  */
+  ERR_LICENSE_MINUTES_EXCEED = 3,
+  /**
+   * 4: License use in limited period
+  */
+  ERR_LICENSE_LIMITED_PERIOD = 4,
+  /**
+   * 5: Same license used in different devices at the same time
+  */
+  ERR_LICENSE_DIFF_DEVICES = 5,
+  /**
+   * 99: SDK internal error
+  */
+  ERR_LICENSE_INTERNAL = 99,
+} license_err_reason_e;
+
 /**
  * The definition of the user_offline_reason_e enum.
  */
@@ -218,6 +245,28 @@ typedef enum {
   VIDEO_STREAM_LOW = 1,
 } video_stream_type_e;
 
+/*
+ * Video rotation information.
+ */
+typedef enum {
+  /**
+   * 0: Rotate the video by 0 degree clockwise.
+   */
+  VIDEO_ORIENTATION_0 = 0,
+  /**
+   * 90: Rotate the video by 90 degrees clockwise.
+   */
+  VIDEO_ORIENTATION_90 = 1,
+  /**
+   * 180: Rotate the video by 180 degrees clockwise.
+   */
+  VIDEO_ORIENTATION_180 = 2,
+  /**
+   * 270: Rotate the video by 270 degrees clockwise.
+   */
+  VIDEO_ORIENTATION_270 = 3
+} video_orientation_e;
+
 /**
  * The definition of the video_frame_info_t struct.
  */
@@ -241,6 +290,10 @@ typedef struct {
    * - Otherwise, timestamp will be adjusted to the value of frame_per_sec set.
    */
   video_frame_rate_e frame_rate;
+  /**
+   * The rotation information of the encoded video frame: #VIDEO_ORIENTATION.
+   */
+  video_orientation_e rotation;
 } video_frame_info_t;
 
 /**
@@ -376,6 +429,8 @@ typedef struct {
   bool log_disable_desensitize;
   rtc_log_level_e log_level;
   const char *log_path;
+  const char *log_tag;
+  int (*log_printf)(const char *fmt, ...);
 } log_config_t;
 
 /**
@@ -403,6 +458,12 @@ typedef struct {
    * - The 10 numbers: 0 to 9
    */
   char license_value[AGORA_LICENSE_VALUE_LEN + 1];
+  /**
+   * Determines whether to enable domain limit.
+   * - `true`: only connect to servers that already parsed by DNS
+   * - `false`: (Default) connect to servers with no limit
+   */
+  bool domain_limit;
 } rtc_service_option_t;
 
 typedef struct {
@@ -424,6 +485,22 @@ typedef struct {
 } audio_codec_option_t;
 
 /**
+ * The definition of the rtc_audio_process_options_t struct.
+ */
+typedef struct{
+  // whether to open audio process
+  bool enable_audio_process;
+  // whether to open aec
+  bool enable_aec;
+  // whether to open ns
+  bool enable_ns;
+
+  bool ref_data_from_sdk;
+  // whether to dump audio data from audio process
+  bool enable_dump_data;
+} rtc_audio_process_options_t;
+
+/**
  * The definition of the rtc_channel_options_t struct.
  */
 typedef struct {
@@ -439,6 +516,8 @@ typedef struct {
   bool enable_audio_mixer;
   // audio encode and decode configuration when send pcm audio data by #agora_rtc_send_audio_data
   audio_codec_option_t audio_codec_opt;
+  // audio process options
+  rtc_audio_process_options_t audio_process_opt;
   // whether to use encryption for audio and video data when transmission to network
   // this only works with SDK that have AUT(agora universal transport) feature
   bool enable_aut_encryption;
@@ -517,6 +596,15 @@ typedef struct {
    * @param[in] elapsed_ms Time elapsed (ms) since rejoin due to network
    */
   void (*on_rejoin_channel_success)(connection_id_t conn_id, uint32_t uid, int elapsed_ms);
+
+  /**
+   * Occurs when connection license verification fails
+   *
+   * You can know the reason accordding to error code
+   * @param[in] conn_id Connection identification
+   * @param[in] error   Error code, see #license_err_code_e
+   */
+  void (*on_license_validation_failure)(connection_id_t conn_id, int error);
 
   /**
    * Report error message during runtime.
@@ -649,36 +737,6 @@ extern const char *agora_rtc_get_version(void);
  * @return Const static error string
  */
 extern __agora_api__ const char *agora_rtc_err_2_str(int err);
-
-/**
- * @brief Generate a credential which is a unique device identifier.
- * @note It's authorizing smart devices license.
- *       You can disregard it if license isn't used.
- * @param[out]    credential        Credential buffer holding the generated data
- * @param[in,out] credential_len    Credential buffer length (bytes), which should be larger than AGORA_CREDENTIAL_MAX_LEN
- * @return
- * - = 0: Success
- * - < 0: Failure
- */
-extern __agora_api__ int agora_rtc_license_gen_credential(char *credential, unsigned int *credential_len);
-
-/**
- * @brief Authenticate the SDK licence.
- * @note
- * - It's authorizing smart devices license.
- *   You can disregard it if you do not use a license.
- *   Once the license is enabled, only the authenticated SDK can be used.
- * - This API should be invoked before agora_rtc_init
- * @param[in] certificate     Certificate buffer
- * @param[in] certificate_len Certificate buffer length
- * @param[in] credential      Credential buffer
- * @param[in] credential_len  Credential buffer length
- * @return
- * - = 0: Success
- * - < 0: Failure
- */
-extern __agora_api__ int agora_rtc_license_verify(const char *certificate, int certificate_len, const char *credential,
-                                                  int credential_len);
 
 /**
  * @brief Initialize the Agora RTSA service.
