@@ -9,6 +9,9 @@ use std::ffi::{c_void, CStr, CString};
 use std::option::Option;
 use std::ptr::{null, null_mut};
 
+// https://zhuanlan.zhihu.com/p/148369298
+pub use super::utils::{err_2_result, err_2_reason};
+
 #[derive(Copy, Clone, FromPrimitive, IntoPrimitive)]
 #[repr(u32)]
 pub enum VideoDataType {
@@ -83,25 +86,25 @@ pub enum LogLevel {
 #[derive(Clone)]
 pub struct RtcServiceOption {
     pub area_code: AreaCode,
-    pub product_id: [u8; 64],
+    pub product_id: CString,
+    pub license:CString,
     pub log_cfg: LogConfig,
-    pub license_value: [u8; 33],
 }
 
 impl RtcServiceOption {
-    pub fn new(log_path: &str, log_level: LogLevel) -> Self {
+    pub fn new(log_path: &str, prod_id:&str, license:&str, log_level: LogLevel) -> Self {
         let log_cfg = LogConfig {
             log_disable: false,
             log_disable_desensitize: true,
             log_level,
             log_path: log_path.to_owned(),
         };
-
+        
         RtcServiceOption {
+            product_id: prod_id.to_c_string().unwrap(),
+            license: license.to_c_string().unwrap(),
             area_code: AreaCode::CN,
-            product_id: [0; 64],
             log_cfg: log_cfg,
-            license_value: [0; 33],
         }
     }
 }
@@ -143,9 +146,9 @@ impl From<RtcServiceOption> for rtc_service_option_t {
     fn from(opt: RtcServiceOption) -> Self {
         rtc_service_option_t {
             area_code: opt.area_code.into(),
-            product_id: opt.product_id,
+            product_id: opt.product_id.to_bytes().try_into().unwrap(),
             log_cfg: opt.log_cfg.clone().into(),
-            license_value: opt.license_value,
+            license_value: opt.license.to_bytes().try_into().unwrap(),
             domain_limit: false,
         }
     }
@@ -223,7 +226,6 @@ impl rtc_channel_options_t {
     }
 }
 
-// I don't get intellisense in other file for some reason
 pub struct AgoraApp {
     uid: u32,
     conn_id: Option<u32>,
