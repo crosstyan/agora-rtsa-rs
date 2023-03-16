@@ -144,11 +144,15 @@ impl Drop for log_config_t {
 
 impl From<RtcServiceOption> for rtc_service_option_t {
     fn from(opt: RtcServiceOption) -> Self {
+        let mut product_id: [u8; 64] = [0; 64];
+        let mut license_value: [u8; 33] = [0; 33];
+        product_id[..opt.product_id.to_bytes_with_nul().len()].copy_from_slice(opt.product_id.to_bytes_with_nul());
+        license_value[..opt.license.to_bytes_with_nul().len()].copy_from_slice(opt.license.to_bytes_with_nul());
         rtc_service_option_t {
             area_code: opt.area_code.into(),
-            product_id: opt.product_id.to_bytes().try_into().unwrap(),
+            product_id: product_id,
             log_cfg: opt.log_cfg.clone().into(),
-            license_value: opt.license.to_bytes().try_into().unwrap(),
+            license_value: license_value,
             domain_limit: false,
         }
     }
