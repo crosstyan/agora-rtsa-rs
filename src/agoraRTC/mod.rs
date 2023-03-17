@@ -256,7 +256,8 @@ impl AgoraApp {
     pub fn app_id(&self) -> &str {
         self.c_app_id.to_str().unwrap()
     }
-    /// I guess you can only join one channel at a time
+    /// I guess you can only join one channel at a time...for now
+    /// There's no necessary to join multiple channels at the same time
     pub fn is_joined(&self) -> bool {
         self.is_joined
     }
@@ -338,7 +339,7 @@ impl AgoraApp {
     // TODO: better error handling
     // https://stackoverflow.com/questions/53183070/what-is-the-defacto-bytes-type-in-rust
     pub fn send_video_data(
-        &self,
+        &mut self,
         buf: &[u8],
         info: &video_frame_info_t,
     ) -> Result<(), ErrorCode> {
@@ -365,7 +366,7 @@ impl AgoraApp {
         self.default_video_info = Some(info);
     }
 
-    pub fn send_video_data_default(&self, buf: &[u8]) -> Result<(), ErrorCode> {
+    pub fn send_video_data_default(&mut self, buf: &[u8]) -> Result<(), ErrorCode> {
         let i = self.default_video_info.expect("No Video Info");
         self.send_video_data(buf, &i)
     }
